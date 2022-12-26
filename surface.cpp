@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstring>
 #include "FreeImage.h"
+#include "game.h"
 
 namespace Tmpl8 {
 
@@ -147,7 +148,46 @@ int LineOutCode(float x, float y, float xMin, float xMax, float yMin, float yMax
 {
 	return (((x) < xMin) ? 1 : (((x) > xMax) ? 2 : 0)) + (((y) < yMin) ? 4 : (((y) > yMax) ? 8 : 0));
 }
-	
+
+void Surface::Line(Tmpl8::Line* line)
+{
+	int x1 = line->m_x1, x2 = line->m_x2, y1 = line->m_y1, y2 = line->m_y2;
+	Pixel c = line->pixel;
+
+	const float xmin = 0, ymin = 0, xmax = ScreenWidth - 1, ymax = ScreenHeight - 1;
+	int c0 = LineOutCode(x1, y1, xmin, xmax, ymin, ymax), c1 = LineOutCode(x2, y2, xmin, xmax, ymin, ymax);
+	bool accept = false;
+	while (1)
+	{
+		if (!(c0 | c1)) { accept = true; break; }
+		else if (c0 & c1) break; else
+		{
+			float x = 1.0f, y = 1.0f;
+			const int co = c0 ? c0 : c1;
+			if (co & 8) x = x1 + (x2 - x1) * (ymax - y1) / (y2 - y1), y = ymax;
+			else if (co & 4) x = x1 + (x2 - x1) * (ymin - y1) / (y2 - y1), y = ymin;
+			else if (co & 2) y = y1 + (y2 - y1) * (xmax - x1) / (x2 - x1), x = xmax;
+			else if (co & 1) y = y1 + (y2 - y1) * (xmin - x1) / (x2 - x1), x = xmin;
+			if (co == c0) x1 = x, y1 = y, c0 = LineOutCode(x1, y1, xmin, xmax, ymin, ymax);
+			else x2 = x, y2 = y, c1 = LineOutCode(x2, y2, xmin, xmax, ymin, ymax);
+		}
+	}
+	if (!accept) return;
+	float b = x2 - x1;
+	float h = y2 - y1;
+	float l = fabsf(b);
+	if (fabsf(h) > l) l = fabsf(h);
+	int il = (int)l;
+	float dx = b / (float)l;
+	float dy = h / (float)l;
+	for (int i = 0; i <= il; i++)
+	{
+		*(m_Buffer + (int)x1 + (int)y1 * m_Pitch) = c;
+		x1 += dx, y1 += dy;
+	}
+
+}
+
 void Surface::Line( float x1, float y1, float x2, float y2, Pixel c )
 {
 	// clip (Cohen-Sutherland, https://en.wikipedia.org/wiki/Cohen%E2%80%93Sutherland_algorithm)
@@ -364,7 +404,7 @@ Sprite::~Sprite()
 	delete[] m_Start;
 }
 
-void Sprite::Draw( Surface* a_Target, int a_X, int a_Y )
+void Sprite::Draw( Surface* a_Target, int a_X, int a_Y)
 {
 	if ((a_X < -m_Width) || (a_X > (a_Target->GetWidth() + m_Width))) return;
 	if ((a_Y < -m_Height) || (a_Y > (a_Target->GetHeight() + m_Height))) return;
@@ -421,6 +461,67 @@ void Sprite::Draw( Surface* a_Target, int a_X, int a_Y )
 			src += m_Pitch;
 		}
 	}
+}
+
+// Overloading the function so I can mess around with scaling sprites easier.
+void Sprite::DrawScaled(int a_X, int a_Y, int scale_factor, Surface* a_Target)
+{
+	if ((a_X < -m_Width * scale_factor) || (a_X > (a_Target->GetWidth() + (m_Width) * scale_factor))) return;
+	if ((a_Y < -m_Height * scale_factor) || (a_Y > (a_Target->GetHeight() + (m_Height) * scale_factor))) return;
+	int x1 = a_X, x2 = a_X + m_Width ;
+	int y1 = a_Y, y2 = a_Y + m_Height ;
+	Pixel* src = GetBuffer() + m_CurrentFrame * m_Width;
+	if (x1 < 0)
+	{
+		src += -x1;
+		x1 = 0;
+	}
+	if (x2 > a_Target->GetWidth()) x2 = a_Target->GetWidth();
+	if (y1 < 0)
+	{
+		src += -y1 * m_Pitch;
+		y1 = 0;
+	}
+	if (y2 > a_Target->GetHeight()) y2 = a_Target->GetHeight();
+	Pixel* dest = a_Target->GetBuffer();
+	int xs;
+	const int dpitch = a_Target->GetPitch();
+	if ((x2 > x1) && (y2 > y1))
+	{
+		unsigned int addr = y1 * dpitch + x1;
+		const int width = x2 - x1 ;
+		const int height = y2 - y1 ;
+		for (int y = 0; y < height; y++)
+		{
+			const int line = (y + (y1 - a_Y));
+			const int lsx = static_cast<int>(m_Start[m_CurrentFrame][line]) + a_X;
+			if (m_Flags & FLARE)
+			{	// I don't know how to handle this :)
+				Draw(a_Target, a_X, a_Y);
+			}
+			else
+			{
+				xs = (lsx > x1) ? lsx - x1 : 0;
+				for (int x = xs; x < width; x++)
+				{
+					int u = x * scale_factor;
+					const Pixel c1 = *(src + x);
+
+					if (c1 & 0xffffff && (addr / dpitch) + scale_factor <= a_Target->GetHeight())
+					{
+						for (int i = 1; i <= scale_factor; i++)
+						{
+							for (int j = 0; j < scale_factor; j++)
+								*(dest + addr + (j * dpitch) + u - i) = c1;
+						}
+					}
+				}
+			}
+			addr += scale_factor * dpitch;
+			src += m_Pitch;
+		}
+	}
+
 }
 
 void Sprite::DrawScaled( int a_X, int a_Y, int a_Width, int a_Height, Surface* a_Target )

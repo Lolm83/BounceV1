@@ -9,6 +9,9 @@
       <Filter>template code</Filter>
     </ClCompile>
     <ClCompile Include="Circle.cpp" />
+    <ClCompile Include="Command.cpp" />
+    <ClCompile Include="Physics.cpp" />
+    <ClCompile Include="Player.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="game.h" />
@@ -18,6 +21,7 @@
     <ClInclude Include="template.h">
       <Filter>template code</Filter>
     </ClInclude>
+    <ClInclude Include="Player.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template code">
