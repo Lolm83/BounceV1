@@ -1,6 +1,7 @@
 // Template, BUAS version https://www.buas.nl/games
 // IGAD/BUAS(NHTV)/UU - Jacco Bikker - 2006-2020
 
+#include <SDL.h>
 #include "surface.h"
 #include "template.h"
 #include <cassert>
@@ -91,13 +92,13 @@ void Surface::Clear( Pixel a_Color )
 	for ( int i = 0; i < s; i++ ) m_Buffer[i] = a_Color;
 }
 
-void Surface::Centre( char* a_String, int y1, Pixel color )
+void Surface::Centre( char* a_String, int y1, Pixel color, int scale_factor)
 {
-	int x = (m_Width - (int)strlen( a_String ) * 6) / 2;
-	Print( a_String, x, y1, color );
+	int x = (m_Width - (int)strlen( a_String ) * 6) / 2 * scale_factor;
+	Print( a_String, x, y1, color, scale_factor);
 }
 
-void Surface::Print( char* a_String, int x1, int y1, Pixel color )
+void Surface::Print( char* a_String, int x1, int y1, Pixel color, int scale_factor )
 {
 	if (!fontInitialized) 
 	{
@@ -105,15 +106,34 @@ void Surface::Print( char* a_String, int x1, int y1, Pixel color )
 		fontInitialized = true;
 	}
 	Pixel* t = m_Buffer + x1 + y1 * m_Pitch;
-	for ( int i = 0; i < (int)(strlen( a_String )); i++, t += 6 )
+	for ( int i = 0; i < (int)(strlen( a_String )); i++, t += 6 * scale_factor )
 	{	
 		long pos = 0;
 		if ((a_String[i] >= 'A') && (a_String[i] <= 'Z')) pos = s_Transl[(unsigned short)(a_String[i] - ('A' - 'a'))];
 													 else pos = s_Transl[(unsigned short)a_String[i]];
 		Pixel* a = t;
 		char* c = (char*)s_Font[pos];
-		for ( int v = 0; v < 5; v++, c++, a += m_Pitch ) 
-			for ( int h = 0; h < 5; h++ ) if (*c++ == 'o') *(a + h) = color, *(a + h + m_Pitch) = 0;
+		for (int v = 0; v < 5; v++, c++, a += scale_factor * m_Pitch)
+		{
+			for (int h = 0; h < 5; h++)
+			{
+				int u = h * scale_factor;
+
+				if (*c++ == 'o')
+				{
+					for (int i = 0; i <= scale_factor; i++)
+						for (int j = 0; j <= scale_factor; j++)
+							*(a - m_Pitch * j + u + i) = color;
+
+				}
+				else
+				{
+					for (int i = 0; i <= scale_factor; i++)
+						for (int j = 0; j <= scale_factor; j++)
+							*(a - m_Pitch * j + u + i) = *(a - m_Pitch * j + u + i);
+				}
+			}
+		}
 	}
 }
 
@@ -441,7 +461,7 @@ void Sprite::Draw( Surface* a_Target, int a_X, int a_Y)
 				for ( int x = xs; x < width; x++ )
 				{
 					const Pixel c1 = *(src + x);
-					if (c1 & 0xffffff) 
+					if (c1 & 0x000000) 
 					{
 						const Pixel c2 = *(dest + addr + x);
 						*(dest + addr + x) = AddBlend( c1, c2 );
@@ -454,7 +474,7 @@ void Sprite::Draw( Surface* a_Target, int a_X, int a_Y)
 				for ( int x = xs; x < width; x++ )
 				{
 					const Pixel c1 = *(src + x);
-					if (c1 & 0xffffff) *(dest + addr + x) = c1;
+					if (c1 & 0xffffffff) *(dest + addr + x) = c1;
 				}
 			}
 			addr += dpitch;
@@ -476,13 +496,13 @@ void Sprite::DrawScaled(int a_X, int a_Y, int scale_factor, Surface* a_Target)
 		src += -x1;
 		x1 = 0;
 	}
-	if (x2 > a_Target->GetWidth()) x2 = a_Target->GetWidth();
+	if (x2 + scale_factor > a_Target->GetWidth()) x2 = a_Target->GetWidth() - scale_factor;
 	if (y1 < 0)
 	{
 		src += -y1 * m_Pitch;
 		y1 = 0;
 	}
-	if (y2 > a_Target->GetHeight()) y2 = a_Target->GetHeight();
+	if (y2 + scale_factor > a_Target->GetHeight()) y2 = a_Target->GetHeight() - scale_factor;
 	Pixel* dest = a_Target->GetBuffer();
 	int xs;
 	const int dpitch = a_Target->GetPitch();
@@ -522,6 +542,188 @@ void Sprite::DrawScaled(int a_X, int a_Y, int scale_factor, Surface* a_Target)
 		}
 	}
 
+}
+
+enum DIRECTION
+{
+	RIGHT,
+	LEFT,
+	DOWN
+};
+
+void Sprite::DrawRotated(int a_X, int a_Y, int scale_factor, Surface* a_Target, int direction)
+{
+
+	if (direction == DOWN)
+	{
+		if ((a_X < -m_Width * scale_factor) || (a_X > (a_Target->GetWidth() + (m_Width)*scale_factor))) return;
+		if ((a_Y < -m_Height * scale_factor) || (a_Y > (a_Target->GetHeight() + (m_Height)*scale_factor))) return;
+		int x1 = a_X, x2 = a_X + m_Width;
+		int y1 = a_Y, y2 = a_Y + m_Height;
+		Pixel* src = GetBuffer() + m_CurrentFrame * m_Width;
+		if (x1 < 0)
+		{
+			src += -x1;
+			x1 = 0;
+		}
+		if (x2 > a_Target->GetWidth()) x2 = a_Target->GetWidth();
+		if (y1 < 0)
+		{
+			src += -y1 * m_Pitch;
+			y1 = 0;
+		}
+		if (y2 > a_Target->GetHeight()) y2 = a_Target->GetHeight();
+		Pixel* dest = a_Target->GetBuffer();
+		int xs;
+		const int dpitch = a_Target->GetPitch();
+		if ((x2 > x1) && (y2 > y1))
+		{
+			unsigned int addr = y1 * dpitch + x1;
+			const int width = x2 - x1;
+			const int height = y2 - y1;
+			for (int y = 1; y < height; y++)
+			{
+				const int line = (y + (y1 - a_Y));
+				const int lsx = static_cast<int>(m_Start[m_CurrentFrame][line]) + a_X;
+				if (m_Flags & FLARE)
+				{	// I don't know how to handle this :)
+					Draw(a_Target, a_X, a_Y);
+				}
+				else
+				{
+					xs = (lsx > x1) ? lsx - x1 : 0;
+					for (int x = xs; x < width; x++)
+					{
+						int u = x * scale_factor;
+						const Pixel c1 = *(src + x);
+
+						if (c1 & 0xffffff && (addr / dpitch) + scale_factor <= a_Target->GetHeight())
+						{
+							for (int i = 1; i <= scale_factor; i++)
+							{
+								for (int j = 0; j < scale_factor; j++)
+									*(dest + addr + (j * dpitch) + u - i) = c1;
+							}
+						}
+					}
+				}
+				addr += scale_factor * dpitch;
+				src += m_Pitch;
+			}
+		}
+	}
+	else if (direction == RIGHT)
+	{
+		if ((a_X < -m_Width * scale_factor) || (a_X > (a_Target->GetWidth() + (m_Width)*scale_factor))) return;
+		if ((a_Y < -m_Height * scale_factor) || (a_Y > (a_Target->GetHeight() + (m_Height)*scale_factor))) return;
+		int x1 = a_X, x2 = a_X + m_Width;
+		int y1 = a_Y, y2 = a_Y + m_Height;
+		Pixel* src = GetBuffer() + m_CurrentFrame * m_Width;
+		if (x1 < 0)
+		{
+			src += -x1;
+			x1 = 0;
+		}
+		if (x2 > a_Target->GetWidth()) x2 = a_Target->GetWidth();
+		if (y1 < 0)
+		{
+			src += -y1 * m_Pitch;
+			y1 = 0;
+		}
+		if (y2 > a_Target->GetHeight()) y2 = a_Target->GetHeight();
+		Pixel* dest = a_Target->GetBuffer();
+		int xs;
+		const int dpitch = a_Target->GetPitch();
+		if ((x2 > x1) && (y2 > y1))
+		{
+			unsigned int addr = y1 * dpitch + x1;
+			const int width = x2 - x1;
+			const int height = y2 - y1;
+			for (int y = 0; y < height; y++)
+			{
+				const int line = (y + (x1 - a_X)); // I figured out how to modify this to rotate the image! Took a lot of paper...
+				const int lsx = static_cast<int>(m_Start[m_CurrentFrame][line]) - a_Y;
+				if (m_Flags & FLARE)
+				{	// I don't know how to handle this :)
+					Draw(a_Target, a_X, a_Y);
+				}
+				else
+				{
+					xs = (lsx > x1) ? lsx - x1 : 0;
+					for (int x = xs; x < width; x++)
+					{
+						int u = x * scale_factor;
+						const Pixel c1 = *(src + x * m_Pitch);
+
+						if (c1 & 0xffffff && (addr / dpitch) + scale_factor <= a_Target->GetHeight())
+						{
+							// addr = y1 * dpitch + x1
+									*(dest + addr + dpitch + x) = c1;
+						}
+					}
+				}
+				addr -= dpitch;
+				src += 1;
+			}
+		}
+	
+	}
+	else if (direction == LEFT)
+	{
+		if ((a_X < -m_Width * scale_factor) || (a_X > (a_Target->GetWidth() + (m_Width)*scale_factor))) return;
+		if ((a_Y < -m_Height * scale_factor) || (a_Y > (a_Target->GetHeight() + (m_Height)*scale_factor))) return;
+		int x1 = a_X, x2 = a_X + m_Width;
+		int y1 = a_Y, y2 = a_Y + m_Height;
+		Pixel* src = GetBuffer() + m_CurrentFrame * m_Width + m_Height * m_Pitch;
+		if (x1 < 0)
+		{
+			src += -x1;
+			x1 = 0;
+		}
+		if (x2 > a_Target->GetWidth()) x2 = a_Target->GetWidth();
+		if (y1 < 0)
+		{
+			src += -y1 * m_Pitch;
+			y1 = 0;
+		}
+		if (y2 > a_Target->GetHeight()) y2 = a_Target->GetHeight();
+		Pixel* dest = a_Target->GetBuffer();
+		int xs;
+		const int dpitch = a_Target->GetPitch();
+		if ((x2 > x1) && (y2 > y1))
+		{
+			unsigned int addr = y1 * dpitch + x1;
+			const int width = x2 - x1;
+			const int height = y2 - y1;
+			for (int y = 0; y < height; y++)
+			{
+				const int line = (y + (x1 - a_X)); // I figured out how to modify this to rotate the image! Took a lot of paper...
+				const int lsx = static_cast<int>(m_Start[m_CurrentFrame][line]) - a_Y;
+				if (m_Flags & FLARE)
+				{	// I don't know how to handle this :)
+					Draw(a_Target, a_X, a_Y);
+				}
+				else
+				{
+					xs = (lsx > x1) ? lsx - x1 : 0;
+					for (int x = xs + 1; x < width; x++)
+					{
+						int u = x * scale_factor;
+						const Pixel c1 = *(src - x * m_Pitch);
+
+						if (c1 & 0xffffff && (addr / dpitch) + scale_factor <= a_Target->GetHeight())
+						{
+							// addr = y1 * dpitch + x1
+							*(dest + addr + dpitch + x) = c1;
+						}
+					}
+				}
+				addr += dpitch;
+				src += 1;
+			}
+		}
+
+	}
 }
 
 void Sprite::DrawScaled( int a_X, int a_Y, int a_Width, int a_Height, Surface* a_Target )

@@ -23,12 +23,13 @@ namespace Tmpl8
 	};
 
 	// I completely didn't need any of this.
-/*
+
 	class Mouse
 	{
 	public:
 		int x = 0, y = 0;
 		int dx = 0, dy = 0;
+		bool clicked = false;
 	};
 	Mouse cursor;
 
@@ -99,7 +100,6 @@ namespace Tmpl8
 			return false;
 	}
 	
-	*/ 
 
 	class JumpCommand : public Command {
 	public:
@@ -120,12 +120,17 @@ namespace Tmpl8
 	};
 	bool UpCommand::Execute(Player* player )
 	{
-		player->m_action = JUMP;
-		player->m_dy = -480;
+		if(!player->dead)
+			if (player->m_jump_counter < player->m_max_jumps)
+			{
+				player->m_action = JUMP;
+				player->m_dy = -480;
 
-		if (player->m_boundCircle)
-			player->m_boundCircle = 0;
+				if (player->m_boundCircle)
+					player->m_boundCircle = 0;
 
+				player->m_jump_counter++;
+			}
 		
 		return true;
 	}
@@ -150,11 +155,14 @@ namespace Tmpl8
 	};
 	bool LeftCommand::Execute(Player* player )
 	{
-		player->m_dx -= 200;		
-		player->m_direction = LEFT;
+		if (!player->dead)
+		{
+			player->m_dx -= 200;
+			player->m_direction = LEFT;
 
-		if (player->m_action != JUMP)
-			player->m_action = RUN;
+			if (player->m_action != JUMP)
+				player->m_action = RUN;
+		}
 			return true;
 	}
 
@@ -165,11 +173,14 @@ namespace Tmpl8
 	};
 	bool RightCommand::Execute(Player* player )
 	{
-		player->m_dx += 200;
-		player->m_direction = RIGHT;
+		if (!player->dead)
+		{
+			player->m_dx += 200;
+			player->m_direction = RIGHT;
 
-		if (player->m_action != JUMP)
-			player->m_action = RUN;
+			if (player->m_action != JUMP)
+				player->m_action = RUN;
+		}
 			return true;		
 	}
 	
@@ -184,12 +195,13 @@ namespace Tmpl8
 		BUTTON_A,
 		BUTTON_S,
 		BUTTON_D,
+		BUTTON_E,
+
 		BUTTON_UP,
 		BUTTON_DOWN,
 		BUTTON_LEFT,
 		BUTTON_RIGHT,
 		BUTTON_SPACE,
-		BUTTON_E,
 
 		BUTTON_COUNT
 	};
@@ -200,18 +212,18 @@ namespace Tmpl8
 		InputHandler() {
 		//	Leftclick = new DragShootCommand;
 		//	Rightclick = new DragMoveCommand;
-			Space = new JumpCommand; 
-			W = new UpCommand;
-			A = new LeftCommand;
-			S = new DownCommand;
-			D = new RightCommand;
+
+			Up = new UpCommand;
+			Left = new LeftCommand;
+			Down = new DownCommand;
+			Right = new RightCommand;
 		};
 		void HandleInput(Player* p1, Player* p2 );
-		Command* W;
-		Command* Space;
-		Command* A;
-		Command* S;
-		Command* D;
+
+		Command* Up;
+		Command* Left;
+		Command* Down;
+		Command* Right;
 
 		ButtonState buttons[BUTTON_COUNT];
 
@@ -224,6 +236,7 @@ namespace Tmpl8
 
 	InputHandler input_handler;
 	bool jumping1 = false;
+	bool jumping2 = false; 
 
 
 	void Game::KeyUp(int key)
@@ -241,10 +254,18 @@ namespace Tmpl8
 			jumping1 = false;
 			input_handler.buttons[BUTTON_W].is_down = false;       
 			input_handler.buttons[BUTTON_W].changed = true; break;
+		case SDL_SCANCODE_UP:
+			jumping2 = false;
+			input_handler.buttons[BUTTON_UP].is_down = false;
+			input_handler.buttons[BUTTON_UP].changed = true; break;
 
 			ProcessKeyUp(BUTTON_A, SDL_SCANCODE_A);
 			ProcessKeyUp(BUTTON_D, SDL_SCANCODE_D);
 			ProcessKeyUp(BUTTON_E, SDL_SCANCODE_E);
+
+			ProcessKeyUp(BUTTON_LEFT, SDL_SCANCODE_LEFT);
+			ProcessKeyUp(BUTTON_RIGHT, SDL_SCANCODE_RIGHT);
+			ProcessKeyUp(BUTTON_SPACE, SDL_SCANCODE_SPACE);
 		}
 
 	}
@@ -266,15 +287,25 @@ namespace Tmpl8
 				jumping1 = true;
 			}
 			break;
+		case SDL_SCANCODE_UP:
+			if (!jumping2)
+			{
+				input_handler.buttons[BUTTON_UP].is_down = true;
+				input_handler.buttons[BUTTON_UP].changed = true;
+				jumping2 = true;
+			}
+			break;
 
 			ProcessKeyDown(BUTTON_A, SDL_SCANCODE_A);
 			ProcessKeyDown(BUTTON_D, SDL_SCANCODE_D);
 			ProcessKeyDown(BUTTON_E, SDL_SCANCODE_E);
+
+			ProcessKeyDown(BUTTON_LEFT, SDL_SCANCODE_LEFT);
+			ProcessKeyDown(BUTTON_RIGHT, SDL_SCANCODE_RIGHT);
+			ProcessKeyDown(BUTTON_SPACE, SDL_SCANCODE_SPACE);
 			}
 	}
 
-	float deltat = 0;
-	float delft = 0;
 
 
 	void InputHandler::HandleInput(Player* p1, Player* p2 )
@@ -283,29 +314,61 @@ namespace Tmpl8
 #define Pressed(b) (buttons[b].is_down && buttons[b].changed)
 #define Released(b) (!buttons[b].is_down && buttons[b].changed)
 
-		bool no_input = false;
-
+		bool input1 = false;
+		bool input2 = false;
 
 		if (Pressed(BUTTON_W))
 		{
-			W->Execute(p1);
+			Up->Execute(p1);
 		}
 		if (IsDown(BUTTON_A))
 		{
-			A->Execute(p1);
+			Left->Execute(p1);
 			
 		}
 		if (IsDown(BUTTON_D))
 		{
-			D->Execute(p1);
+			Right->Execute(p1);
 		}
 		if (Pressed(BUTTON_E))
 		{
 			p1->m_attacking = true;
 		}
-		if (!IsDown(0) && !IsDown(1) && !IsDown(2) && !IsDown(3))
-			p1->m_action = IDLE;
-		
+		else
+		{
+			for (int i = 0; i < BUTTON_COUNT / 2; i++)
+				if (IsDown(i))
+					input1 = true;
+			if (!input1)
+				p1->m_action = IDLE;
+		}
+
+
+		if (Pressed(BUTTON_UP))
+		{
+			Up->Execute(p2);
+		}
+		if (IsDown(BUTTON_LEFT))
+		{
+			Left->Execute(p2);
+		}
+		if (IsDown(BUTTON_RIGHT))
+		{
+			Right->Execute(p2);
+		}
+		if (Pressed(BUTTON_SPACE))
+		{
+			p2->m_attacking = true;
+		}
+		// micro-optimization with the else :)
+		else
+		{
+			for (int i = BUTTON_COUNT / 2; i < BUTTON_COUNT; i++)
+				if (IsDown(i))
+					input2 = true;
+			if (!input2)
+				p2->m_action = IDLE;
+		}
 
 
 	}

@@ -22,6 +22,9 @@
       <Filter>template code</Filter>
     </ClInclude>
     <ClInclude Include="Player.h" />
+    <ClInclude Include="Circle.h">
+      <Filter>template code</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="template code">
