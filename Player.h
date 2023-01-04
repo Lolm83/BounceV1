@@ -99,6 +99,9 @@ namespace Tmpl8
 			m_y = y; m_aFrame = 0;
 			m_aTime = 0;
 
+			p_total++;
+			player_id = p_total;
+
 			m_sheet[0] = *sheet, m_sheet[1] = *sheetL, m_sheet[2] = *head;
 		}
 
@@ -153,5 +156,11 @@ namespace Tmpl8
 		bool dead = false;
 		Sprite m_explosion = kaboom;
 		void BlowUp(float dt, Surface* screen);
+
+	private:
+		int player_id;
+		static int p_total;
 	};
+
+	int Player::p_total = 0;
 }

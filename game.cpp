@@ -13,7 +13,7 @@
 
 namespace Tmpl8
 {
-	
+	bool credits = false;
 	std::vector<Circle*>::iterator circle_iter;
 	Player player;
 	Player player2(300, 300, &mort_sheet, &mort_sheetL, &mort_head);
@@ -144,6 +144,11 @@ namespace Tmpl8
 		p_circles.push_back(new Circle(200.f, 400.f, 80, -180, 0));
 		p_circles.push_back(new Circle(26.f, 50.f, 25, 200, 0));
 		p_circles.push_back(new Circle(600.f, 400.f, 80, 180, 0));
+	}
+
+	void Game::DrawCredits()
+	{
+
 	}
 
 	void Game::Tick(float dt)
@@ -285,26 +290,97 @@ namespace Tmpl8
 			else
 				player.m_life_counter = 3, player2.m_life_counter = 3, wintime = 0;
 		}
-		else
+		else if (credits)
 		{
-			if (mouse.x >= 213 && mouse.x <= 213 + borders.GetWidth() * 3 &&
-				mouse.y >= 330 && mouse.y <= 330 + borders.GetHeight() * 3)
+			if (mouse.x >= 18 && mouse.x <= 18 + borders.GetWidth() &&
+				mouse.y >= 18 && mouse.y <= 18 + borders.GetHeight())
 			{
 				borders.SetFrame(0);
+				if (mouse.clicked)
+				{
+					credits = false;
+					wintime = 0;
+				}
+			}
+			else
+				borders.SetFrame(1);
+			borders.DrawScaled(18, 18, 1, screen);
+			screen->Print("Back", 44, 38, 0xffffff, 3);
+			screen->Print("CREDITS", 340, 38, 0x33ccff, 5);
+
+			wintime += dt / 100;
+			if (wintime >= 17)
+				wintime = 0;
+			mort_sheet.SetFrame(wintime);
+			doux_sheet.SetFrame(wintime);
+			doux_sheet.DrawScaled(15, 100, 3, screen);
+			mort_sheet.DrawScaled(90, 100, 3, screen);
+
+			screen->Print("Doux", 200, 110, 0x33ccff, 4), screen->Print("and", 310, 110, 0xffffff, 4),
+			screen->Print("Mort", 390, 110, 0xff5050, 4), screen->Print("by Arks", 500, 110, 0xffffff, 4);
+			screen->Print("On Itch.IO", 370, 140, 0xffffff, 3);
+
+			int ktime = wintime;
+
+			if (ktime < 12)
+			{
+				kaboom.SetFrame(ktime);
+				kaboom.DrawScaled(15, 200, 1, screen);
+			}
+
+			screen->Print("Explosions from ansimuz's", 150, 210, 0xffffff, 4), screen->Print("On Itch.IO", 370, 270, 0xffffff, 3);
+			screen->Print("  'Explosion Asset Pack'", 140, 240, 0xff5050, 4);
+			
+			red.DrawScaled(-20, 420, 2, screen);
+			blue.Draw(screen, 750, 420);
+			black.DrawScaled(620, 420, 2, screen);
+			green.Draw(screen, 450, 420);
+			pink.Draw(screen, 120, 385);
+			yellow.DrawScaled(220, 420, 3, screen);
+
+			screen->Print("And The Rest of the Art was Made by", 150, 360, 0xffffff, 3);
+			screen->Print("Leni Modli-Gorodetsky", 220, 390, 0xffffff, 4);
+			
+			
+			mouse.clicked = false;
+		}
+		else
+		{
+			if (mouse.x >= 81 && mouse.x <= 81 + borders.GetWidth() * 3 &&
+				mouse.y >= 330 && mouse.y <= 330 + borders.GetHeight() * 3)
+			{
+				borders.SetFrame(1);
 				if (mouse.clicked)
 					running = true;
 			}
 			else
 				borders.SetFrame(0);
-			borders.DrawScaled(210 + 3, 330, 3, screen);
+			borders.DrawScaled(81 + 3, 330, 3, screen);
 
-			screen->Print("Start Game", 248, 395, 0xffffff, 5);
+			screen->Print("Start Game", 119, 395, 0xffffff, 5);
 
 			borders.SetFrame(1);
 			borders.DrawScaled(90, 44, 5, screen);
+
 			screen->Print("BUBBLE", 248, 120, 0xffffff, 9);
 			screen->Print("BATTLE", 248, 180, 0xffffff, 9);
 
+
+			if (mouse.x >= 461 && mouse.x <= 461 + borders.GetWidth() * 2 &&
+				mouse.y >= 330 && mouse.y <= 330 + borders.GetHeight() * 2)
+			{
+				borders.SetFrame(1);
+				if (mouse.clicked)
+					credits = true;
+			}
+			else
+				borders.SetFrame(0);
+
+			borders.DrawScaled(461 + 3, 378, 2, screen);
+			screen->Print("Credits", 525, 423, 0xffffff, 3);
+
+			screen->Print("A Game Programmed by", 464, 340, 0xffffff, 2);
+			screen->Print("Noah Modli-Gorodetsky", 460, 360, 0xffffff, 2);
 			mouse.clicked = false;
 		}
 	}

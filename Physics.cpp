@@ -218,7 +218,7 @@ namespace Tmpl8
 		int x1 = weapon->m_x + weapon->hit_x1, x2 = weapon->m_x + weapon->hit_x2, y1 = weapon->m_y + weapon->hit_y1, y2 = weapon->m_y + weapon->hit_y2;
 
 		if (weapon->m_direction == LEFT)
-			x1 -= 2 * weapon->swing_distance, x2 -= 2 * weapon->swing_distance;
+			x1 -= 2 * weapon->swing_distance + 20, x2 -= 2 * weapon->swing_distance + 20;
 		
 		int px1 = player->m_x + player->xleft1, px2 = player->m_x + player->m_sheet[0].GetWidth() * player->m_scalefactor - player->xright1,
 			py1 = player->m_y + player->ytop, py2 = player->m_y + player->m_sheet[0].GetHeight() * player->m_scalefactor - player->ybottom;

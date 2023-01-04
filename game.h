@@ -4,6 +4,8 @@
 
 namespace Tmpl8 {
 
+	
+
 class Surface;
 
 class Player;
@@ -46,8 +48,10 @@ public:
 	void KeyDown(int key);
 
 	void DrawCircle(Surface* surface, Circle* circle);
+	
 
 	void DrawIngameUI(Surface* screen, Player* p1, Player* p2);
+	void DrawCredits();
 	void ResetGame();
 
 private:

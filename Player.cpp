@@ -245,9 +245,11 @@ namespace Tmpl8
 			if (m_life_counter >= 0)
 			{
 				dead = false;
-				
-					m_x = 150;
-					m_y = 100;
+
+				if (player_id == 1)
+					m_x = 150, m_y = 100;
+				else
+					m_x = 650, m_y = 100;
 
 				m_boundCircle = 0;
 				m_direction = RIGHT;
